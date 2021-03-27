@@ -44,11 +44,13 @@ param (
 	$maxValues = @(100),
 
 	# (valueCountBased) Icon layouts.
-	# Each element a comma-separated list of integer negative gap widths and positive chart widths.
-	# E.g. '30,-4,30'    = two 30 px wide charts with 4 px gap;
-	#      '-2,30,-2,30' = 2 px gap, 30 px chart, 2 px gap, 30 px chart.
-	# Default: @('16') [or similar, using SystemInformation.SmallIconSize instead of fixed 16],
-	# i.e. a single icon layout used regardless of value count; consisting of a single chart. 
+	# Each element is an empty string or a comma-separated list of integer negative gap widths and positive chart widths.
+	# The empty string denotes System.Windows.Forms.SystemInformation.SmallIconSize.width.
+	# Example chart and gap widths:
+	# * '30,-4,30'    = two 30 px wide charts with 4 px gap;
+	# * '-2,30,-2,30' = 2 px gap, 30 px chart, 2 px gap, 30 px chart.
+	# Default: @(''), i.e. a single icon layout used for any value count; consisting of a single chart; its width is
+	# determined from SystemInformation.SmallIconSize.
 	[Parameter(Mandatory=$false)] [string[]]
 	[ValidateScript({
 		function validateChartAndGapWidthsArrays {
@@ -80,7 +82,7 @@ param (
 		}
 		return validateChartAndGapWidthsArrays $_
 	})]
-	$chartAndGapWidths = @('' + [System.Windows.Forms.SystemInformation]::SmallIconSize.width),
+	$chartAndGapWidths = @(''),
 
 	# Icon height in pixels. 0 = same as the width computed from the applicable $chartAndGapWidths.
 	[Parameter(Mandatory=$false)] [uint32]
@@ -244,6 +246,7 @@ try {
 "@
 
 	# ----- convert [string[]] $chartAndGapWidths to more practical objects -----
+	$smallIconSize = [System.Windows.Forms.SystemInformation]::SmallIconSize
 	[IconLayout[]] $iconLayouts = @()
 	[bool] $foundChart = $false
 	for ($i = 0; $i -lt $chartAndGapWidths.length; $i++) {
@@ -253,6 +256,7 @@ try {
 		$iconLayouts += @($iconLayout)
 		$xOffset = 0
 		foreach ($part in $iconLayoutStr -split '\s*,\s*') {
+			if ($part -eq '') { $part = $smallIconSize.width }
 			$part = [int] $part
 			if ($part -lt 0) {
 				$xOffset -= $part
@@ -274,7 +278,7 @@ try {
 	$process = Get-Process -id $pid
 	$hWindow = $process.MainWindowHandle
 	write-debug "window: $hWindow"
-	write-debug "SystemInformation.SmallIconSize: $([System.Windows.Forms.SystemInformation]::SmallIconSize)"
+	write-debug "SystemInformation.SmallIconSize: $smallIconSize"
 	add-type -namespace native -name user32 -member @'
 			[DllImport("user32.dll")] public extern static bool ShowWindow(int handle, int state);
 			[DllImport("user32.dll")] public extern static int  GetGuiResources(IntPtr hProcess, int uiFlags);
