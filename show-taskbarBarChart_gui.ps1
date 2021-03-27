@@ -1,3 +1,6 @@
+using namespace System.Drawing
+using namespace System.Windows.Forms
+
 # Renders a single bitmap; used when there is no value to show.
 # Return type: a { bitmap = ..; text = .. } object
 function defaultBitmap {

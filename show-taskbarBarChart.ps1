@@ -1,6 +1,3 @@
-using namespace System.Drawing
-using namespace System.Windows.Forms
-
 <#
 .SYNOPSIS
 Shows taskbar notification icons with bar charts.
