@@ -39,16 +39,74 @@ class HistStyledValue {
 # [offset: 1, width: 15], [offset: 17, width: 7], [offset: 25, width: 7]
 class ChartLocation {
 	ChartLocation() {}
-	[uint32] $offset
-	[uint32] $width
-	[string] toString() { return "(offset: $($this.offset), width: $($this.width))" }
+	[uint32] $offset # x start coordinate within icon; not including the gap
+	[uint32] $width # not including the gap
+	[uint32] $leftGapWidth
+	[uint32] $rightGapWidth
+	[string] toString() { return "(offset: $($this.offset), width: $($this.width), gap: $($this.leftGapWidth)|$($this.rightGapWidth))" }
 }
 
 class IconLayout {
-	IconLayout() { $this.width = 0; $this.chartLocations = @(); }
+	IconLayout([string] $iconLayoutStr, [uint32] $defaultWidth) {
+		# first loop: replace charts with ChartLocation objects without gapWidths
+		$xOffset = 0
+		$foundChart = $false
+		$tmpChartLocationsAndGaps = @() # with positive gap widths
+		foreach ($part in $iconLayoutStr -split '\s*,\s*') {
+			if ($part -match '^\s*$') { $part = $defaultWidth }
+			$part = [int] $part
+			if ($part -lt 0) { # gap
+				$xOffset -= $part
+				$tmpChartLocationsAndGaps += @(-$part)
+			} elseif ($part -gt 0) { # chart
+				$foundChart = $true
+				$chartLocation = [ChartLocation] @{ width = $part; offset = $xOffset; leftGapWidth = 0; rightGapWidth = 0 }
+				write-debug "new ChartLocation: $($chartLocation.toString())"
+				$xOffset += $part
+				$tmpChartLocationsAndGaps += @($chartLocation)
+			} else {
+				throw "invalid zero in -chartAndGapWidths $iconLayoutStr"
+			}
+			$this.width = $xOffset
+		}
+		if (-not $foundChart) { throw "-chartAndGapWidths element '${iconLayoutStr}' does not contain a chart width" }
+
+		$this.chartLocations = @()
+		# second loop: add each gap widths to the correct ChartLocation
+		for ($i = 0; $i -lt $tmpChartLocationsAndGaps.length; $i++) {
+			if ($tmpChartLocationsAndGaps[$i] -is [ChartLocation]) {
+				$this.chartLocations += $tmpChartLocationsAndGaps[$i]
+				continue
+			}
+
+			# search nearest chart
+			$lookLeft = $true
+			$lookRight = $true
+			for ($dist = 1; $lookLeft -or $lookRight; $dist++) {
+				# chart before current gap wins, if it has the same distance as a chart after the gap
+				if ($lookLeft) {
+					$lookLeft = ($i - $dist) -ge 0
+					if ($lookLeft -and $tmpChartLocationsAndGaps[$i - $dist] -is [ChartLocation]) {
+						$tmpChartLocationsAndGaps[$i - $dist].rightGapWidth += $tmpChartLocationsAndGaps[$i]
+						break
+					}
+				}
+				# chart after current gap
+				if ($lookRight) {
+					$lookRight = ($i + $dist) -lt $tmpChartLocationsAndGaps.length
+					if ($lookRight -and $tmpChartLocationsAndGaps[$i + $dist] -is [ChartLocation]) {
+						$tmpChartLocationsAndGaps[$i + $dist].leftGapWidth += $tmpChartLocationsAndGaps[$i]
+						break
+					}
+				}
+			}
+		}
+		write-debug "$iconLayoutStr -> $($this.toString())"
+	}
+
 	[uint32] $width #including gaps
 	[ChartLocation[]] $chartLocations
-	[string] toString() { return "IconLayout($($this.width), $($this.chartLocations | %{$_.toString()} | join ', '))" }
+	[string] toString() { return "IconLayout($($this.width), [$($this.chartLocations | %{$_.toString()} | join ', ')])" }
 }
 
 # cmdlet alternative for -join operator => fewer parentheses needed

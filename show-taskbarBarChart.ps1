@@ -37,7 +37,7 @@ param (
 
 	# The refresh interval in milliseconds 
 	[Parameter(Mandatory=$false)] [uint32]
-	$interval = 2000,
+	$interval = 1000,
 
 	# (valueIndexBased) For scaling: The 100% value.
 	[Parameter(Mandatory=$false)] [uint32[]]
@@ -46,9 +46,14 @@ param (
 	# (valueCountBased) Icon layouts.
 	# Each element is an empty string or a comma-separated list of integer negative gap widths and positive chart widths.
 	# The empty string denotes System.Windows.Forms.SystemInformation.SmallIconSize.width.
+	# Each gap uses the background color of the "nearest" chart in the array (not in pixels), the preceding one if ambiguous.
+	# For example, given '13,-3,-2,-1,13', the middle (2 px) gap has the same array index distance from both charts, so it
+	# uses the left chart's color, although its distance in pixels is 3, compared to 1 from the right chart. However, it does
+	# not make sense to specify this layout this way, since it's equivalent to '13,-5,-1,13'.
 	# Example chart and gap widths:
 	# * '30,-4,30'    = two 30 px wide charts with 4 px gap;
-	# * '-2,30,-2,30' = 2 px gap, 30 px chart, 2 px gap, 30 px chart.
+	# * '-2,30,-1,-1,30' = 2 px gap, 30 px chart, 1 px gap using left chart's background color, 1 px gap using right
+	# chart's background color, 30 px chart.
 	# Default: @(''), i.e. a single icon layout used for any value count; consisting of a single chart; its width is
 	# determined from SystemInformation.SmallIconSize.
 	[Parameter(Mandatory=$false)] [string[]]
@@ -101,7 +106,7 @@ param (
 	# (valueIndexBased) Background colors.
 	# See method System.Drawing.ColorConverter.convertFromString for valid colors.
 	[Parameter(Mandatory=$false)] [string[]]
-	$bgColors = @('#40ffffff'),
+	$bgColors = @('#ff252525'),
 
 	# Whether the console window is visible on startup. Can be toggled later by clicking an icon.
 	[Parameter(Mandatory=$false)] [boolean]
@@ -245,37 +250,14 @@ try {
 -------------------
 "@
 
-	# ----- convert [string[]] $chartAndGapWidths to more practical objects -----
-	$smallIconSize = [System.Windows.Forms.SystemInformation]::SmallIconSize
-	[IconLayout[]] $iconLayouts = @()
-	[bool] $foundChart = $false
-	for ($i = 0; $i -lt $chartAndGapWidths.length; $i++) {
-		$iconLayoutStr = $chartAndGapWidths[$i]
-		write-debug "convert -chartAndGapWidths element $iconLayoutStr"
-		[IconLayout] $iconLayout = @{}
-		$iconLayouts += @($iconLayout)
-		$xOffset = 0
-		foreach ($part in $iconLayoutStr -split '\s*,\s*') {
-			if ($part -eq '') { $part = $smallIconSize.width }
-			$part = [int] $part
-			if ($part -lt 0) {
-				$xOffset -= $part
-			} elseif ($part -gt 0) {
-				$foundChart = $true
-				$iconLayout.chartLocations += @{ 'width' = $part; 'offset' = $xOffset }
-				$xOffset += $part
-			} else {
-				throw "invalid zero in -chartAndGapWidths $iconLayoutStr"
-			}
-			$iconLayout.width = $xOffset
-		}
-		write-debug "$iconLayoutStr -> $($iconLayout.toString())"
-	}
-	if (-not $foundChart) { throw 'no -chartAndGapWidths element contains a chart width' }
-
 	# ----- init misc ------
 	write-debug "my PID: $pid"
 	$process = Get-Process -id $pid
+	$smallIconSize = [System.Windows.Forms.SystemInformation]::SmallIconSize
+	[IconLayout[]] $iconLayouts = $chartAndGapWidths | % {
+		write-debug "convert -chartAndGapWidths element $_"
+ 		[IconLayout]::new($_, $smallIconSize.width)
+	}
 	$hWindow = $process.MainWindowHandle
 	write-debug "window: $hWindow"
 	write-debug "SystemInformation.SmallIconSize: $smallIconSize"

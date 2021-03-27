@@ -64,28 +64,21 @@ function valuesToBitmaps {
 		write-debug "chartLocation: $($chartLocation.toString())"
 		write-debug "tooltip: $($bitmapResults[-1].text)"
 
-		# --- draw ---
-		# -- chart and gap background
-		# For 1st chart of icon, draw gap preceding and following the chart,
-		# otherwise, draw only gap following the chart.
-		if ($perIconChartIndex -eq 0) {
-			$xLeft = 0
-		} else {
-			$prevChartLocation = $currIconLayout.chartLocations[$perIconChartIndex - 1]
-			$xLeft = $prevChartLocation.offset + $prevChartLocation.width
-		}
-		$chartBgWidth = $bitmap.size.width - $xLeft
-		write-debug "chart background x = $xLeft, width = $chartBgWidth"
-		drawBar -xLeft $xLeft -width $chartBgWidth -relativeHeight 0 -fgColor $fgColor -bgColor $bgColor -bitmap $bitmap
+		# draw gap left of current chart
+		write-debug "draw left gap"
+		drawBar -xLeft ($chartLocation.offset - $chartLocation.leftGapWidth) -width $chartLocation.leftGapWidth -relativeHeight 0 -fgColor $fgColor -bgColor $bgColor -bitmap $bitmap
+		# draw gap right of current chart
+		write-debug "draw right gap"
+		drawBar -xLeft ($chartLocation.offset + $chartLocation.width) -width $chartLocation.rightGapWidth -relativeHeight 0 -fgColor $fgColor -bgColor $bgColor -bitmap $bitmap
 
-		# --- loop: all values in history of one HistStyledValue ---
+		# --- loop: draw all values in history of one HistStyledValue ---
 		# history order: from newest (right) to oldest (left) value
 		# => if chart width is not a multiple ot barWidth, the oldest is truncated
 		$x = $chartLocation.offset + $chartLocation.width
 		foreach ($styledValue in $histStyledValue.values) {
 			$x -= $barWidth
 			$relativeHeight = ($styledValue.value / [float]$maxValue)
-			write-debug "draw at x = ${x}: $($styledValue.toString()) => relativeHeight = ${relativeHeight}"
+			write-debug "draw value at x = ${x}: $($styledValue.toString()) => relativeHeight = ${relativeHeight}"
 			$valueFgColor = if ($null -ne $styledValue.color) { $styledValue.color } else { $fgColor }
 			drawBar -xLeft $x -width $barWidth -relativeHeight $relativeHeight -fgColor $valueFgColor -bgColor $bgColor -bitmap $bitmap
 		}
@@ -110,6 +103,10 @@ function drawBar {
 		[uint32] $width,
 		[float] $relativeHeight
 	)
+	if ($width -eq 0) {
+		write-debug "drawBar: x: $xLeft, w: $width, relativeHeight: $relativeHeight => NOP"
+		return
+	}
 	if ($xLeft -lt 0) { $width += $xLeft; $xLeft = 0 }
 	$yTop = [uint32] [System.math]::round($bitmap.size.height * (1 - $relativeHeight))
 	write-debug "drawBar: x: $xLeft, w: $width, relativeHeight: $relativeHeight => yTop: $yTop"
@@ -117,6 +114,7 @@ function drawBar {
 		$x = $xLeft + $xOffset
 		for ($y = $bitmap.size.height - 1; $y -ge 0; $y--) {
 			$color = if ($y -lt $yTop) { $bgColor } else { $fgColor }
+			write-debug "setPixel($x, $y, $($color.toString()))"
 			$bitmap.setPixel($x, $y, $color)
 		}
 	}
