@@ -1,3 +1,6 @@
+# Copyright (c) 2021 mkq
+# SPDX-License-Identifier: MIT
+
 using namespace System.Drawing
 using namespace System.Windows.Forms
 
@@ -117,7 +120,6 @@ function drawBar {
 		$x = $xLeft + $xOffset
 		for ($y = $bitmap.size.height - 1; $y -ge 0; $y--) {
 			$color = if ($y -lt $yTop) { $bgColor } else { $fgColor }
-			write-debug "setPixel($x, $y, $($color.toString()))"
 			$bitmap.setPixel($x, $y, $color)
 		}
 	}

@@ -1,5 +1,7 @@
-<#
-.SYNOPSIS
+<# .SYNOPSIS
+Copyright (c) 2021 mkq
+SPDX-License-Identifier: MIT
+
 Shows taskbar notification icons with bar charts.
 
 Parameters tagged with "(valueIndexBased)" take an array of whatever type makes sense for the

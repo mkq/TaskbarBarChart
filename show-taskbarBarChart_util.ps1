@@ -1,3 +1,6 @@
+# Copyright (c) 2021 mkq
+# SPDX-License-Identifier: MIT
+
 # A value plus presentation stuff
 class StyledValue {
 	[string] $name
