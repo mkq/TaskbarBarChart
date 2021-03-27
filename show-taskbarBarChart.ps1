@@ -216,7 +216,6 @@ function updateValues {
 function cleanup {
 	param()
 	write-debug 'cleanup()'
-	if ($null -ne $script:brush) { $script:brush.dispose() }
 	if ($null -ne $script:notifyIcons) { hideNotifyIcons }
 }
 
@@ -275,7 +274,7 @@ try {
 	$process = Get-Process -id $pid
 	$hWindow = $process.MainWindowHandle
 	write-debug "window: $hWindow"
-	write-debug "SystemInformation.SmallIconSize: $([System.Windows.Forms.SystemInformation]::SmallIconSize.toString())"
+	write-debug "SystemInformation.SmallIconSize: $([System.Windows.Forms.SystemInformation]::SmallIconSize)"
 	add-type -namespace native -name user32 -member @'
 			[DllImport("user32.dll")] public extern static bool ShowWindow(int handle, int state);
 			[DllImport("user32.dll")] public extern static int  GetGuiResources(IntPtr hProcess, int uiFlags);
@@ -287,8 +286,6 @@ try {
 	$mega = [math]::pow(2, 20)
 	[HistStyledValue[]] $histStyledValues = @()
 	$colorConverter = new-object ColorConverter
-	$color = [Color]::Black
-	$brush = new-object SolidBrush $color
 
 	write-host "`nLeft click any icon to hide or show console window."
 	write-host 'Press Control+C or use any icon''s context menu to exit.'

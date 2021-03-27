@@ -8,13 +8,21 @@ function defaultBitmap {
 	[Bitmap] $bitmap = newBitmap -width $currIconLayout.width -height $currIconHeight
 	$fgColor, $bgColor = getColorsAt 0
 
+	# --- draw background ---
+	for ([int] $y = $bitmap.size.height - 1; $y -ge 0; $y--) {
+		for ([int] $x = $bitmap.size.width - 1; $x -ge 0; $x--) {
+			$bitmap.setPixel($x, $y, $bgColor)
+		}
+	}
+
 	# --- draw a dash (width: half icon width, height: 4 px) ---
-	$graphics = [Graphics]::FromImage($bitmap); try {
-		$script:brush.color = $bgColor
-		fillRectangle -xLeft 0 -width $bitmap.size.width -yTop 0 -yBottom ($bitmap.size.height - 1) -brush $script:brush -graphics $graphics
-		$script:brush.color = $fgColor
-		fillRectangle -xLeft ($bitmap.size.width / 4) -width ($bitmap.size.width / 2) -yTop ($bitmap.size.height / 2 - 1) -yBottom ($bitmap.size.height / 2 + 2) -brush $script:brush -graphics $graphics
-	} finally { $graphics.dispose() }
+	for ([int] $y = $bitmap.size.height / 2 - 1; $y -le $bitmap.size.height / 2 + 2; $y++) {
+		for ([uint32] $x = 0.25 * $bitmap.size.width; $x -le 0.75 * $bitmap.size.width; $x++) {
+			if ($y -ge 0 -and $y -lt $bitmap.size.height) {
+				$bitmap.setPixel($x, $y, $fgColor)
+			}
+		}
+	}
 
 	$text = "$($script:myInvocation.myCommand.name) - no values to show"
 	return @{ bitmap = $bitmap; text = $text; }
@@ -57,37 +65,30 @@ function valuesToBitmaps {
 		write-debug "tooltip: $($bitmapResults[-1].text)"
 
 		# --- draw ---
-		$graphics = [Graphics]::FromImage($bitmap); try {
-			# -- chart and gap background
-			$script:brush.color = $bgColor
-			# For 1st chart of icon, draw gap preceding and following the chart,
-			# otherwise, draw only gap following the chart.
-			if ($perIconChartIndex -eq 0) {
-				$xLeft = 0
-			} else {
-				$prevChartLocation = $currIconLayout.chartLocations[$perIconChartIndex - 1]
-				$xLeft = $prevChartLocation.offset + $prevChartLocation.width
-			}
-			$chartBgWidth = $bitmap.size.width - $xLeft
-			write-debug "chart background x = $xLeft, width = $chartBgWidth"
-			fillRectangle -xLeft $xLeft -width $chartBgWidth -yTop 0 -yBottom ($bitmap.size.height - 1) -brush $script:brush -graphics $graphics
+		# -- chart and gap background
+		# For 1st chart of icon, draw gap preceding and following the chart,
+		# otherwise, draw only gap following the chart.
+		if ($perIconChartIndex -eq 0) {
+			$xLeft = 0
+		} else {
+			$prevChartLocation = $currIconLayout.chartLocations[$perIconChartIndex - 1]
+			$xLeft = $prevChartLocation.offset + $prevChartLocation.width
+		}
+		$chartBgWidth = $bitmap.size.width - $xLeft
+		write-debug "chart background x = $xLeft, width = $chartBgWidth"
+		drawBar -xLeft $xLeft -width $chartBgWidth -relativeHeight 0 -fgColor $fgColor -bgColor $bgColor -bitmap $bitmap
 
-			# --- loop: all values in history of one HistStyledValue ---
-			# history order: from newest (right) to oldest (left) value
-			# => if chart width is not a multiple ot barWidth, the oldest is truncated
-			$x = $chartLocation.offset + $chartLocation.width
-			foreach ($styledValue in $histStyledValue.values) {
-				$x -= $barWidth
-				$relativeHeight = ($styledValue.value / [float]$maxValue)
-				$yTop = [uint32] [System.math]::round($bitmap.size.height * (1 - $relativeHeight))
-				write-debug "draw at x = ${x}: $($styledValue.toString()) => relativeHeight = ${relativeHeight} => yTop = $yTop"
-				$valueFgColor = if ($null -ne $styledValue.color) { $styledValue.color } else { $fgColor }
-				$script:brush.color = $bgColor
-				fillRectangle -xLeft $x -width $barWidth -yTop 0 -yBottom ($bitmap.size.height - 1) -brush $script:brush -graphics $graphics
-				$script:brush.color = $valueFgColor
-				fillRectangle -xLeft $x -width $barWidth -yTop $yTop -yBottom ($bitmap.size.height - 1) -brush $script:brush -graphics $graphics
-			}
-		} finally { $graphics.dispose() }
+		# --- loop: all values in history of one HistStyledValue ---
+		# history order: from newest (right) to oldest (left) value
+		# => if chart width is not a multiple ot barWidth, the oldest is truncated
+		$x = $chartLocation.offset + $chartLocation.width
+		foreach ($styledValue in $histStyledValue.values) {
+			$x -= $barWidth
+			$relativeHeight = ($styledValue.value / [float]$maxValue)
+			write-debug "draw at x = ${x}: $($styledValue.toString()) => relativeHeight = ${relativeHeight}"
+			$valueFgColor = if ($null -ne $styledValue.color) { $styledValue.color } else { $fgColor }
+			drawBar -xLeft $x -width $barWidth -relativeHeight $relativeHeight -fgColor $valueFgColor -bgColor $bgColor -bitmap $bitmap
+		}
 	}
 	return $bitmapResults
 }
@@ -100,19 +101,25 @@ function newBitmap {
 	return $bitmap
 }
 
-function fillRectangle {
+function drawBar {
 	param(
-		[Graphics] $graphics,
-		[Brush] $brush,
+		[Bitmap] $bitmap,
+		[Color] $fgColor,
+		[Color] $bgColor,
 		[int] $xLeft,
 		[uint32] $width,
-		[uint32] $yTop,
-		[uint32] $yBottom
+		[float] $relativeHeight
 	)
 	if ($xLeft -lt 0) { $width += $xLeft; $xLeft = 0 }
-	$height = $yBottom - $yTop + 1
-	write-debug "fillRectangle: x: $xLeft, w: $width, y: $yTop .. $yBottom, h: $height"
-	$graphics.fillRectangle($brush, $xLeft, $yTop, $width, $height)
+	$yTop = [uint32] [System.math]::round($bitmap.size.height * (1 - $relativeHeight))
+	write-debug "drawBar: x: $xLeft, w: $width, relativeHeight: $relativeHeight => yTop: $yTop"
+	for ([int] $xOffset = $width - 1; $xOffset -ge 0; $xOffset--) {
+		$x = $xLeft + $xOffset
+		for ($y = $bitmap.size.height - 1; $y -ge 0; $y--) {
+			$color = if ($y -lt $yTop) { $bgColor } else { $fgColor }
+			$bitmap.setPixel($x, $y, $color)
+		}
+	}
 }
 
 function setNotifyIconFromBitmap {
@@ -131,6 +138,7 @@ function setNotifyIconFromBitmap {
 	}
 }
 
+<#
 # Converts a bitmap to a 256 color image [https://stackoverflow.com/a/6356108].
 # 256 colors were suggested here: [https://stackoverflow.com/q/7490962].
 # But using this in setNotifyIconFromBitmap did not help with bad scaling.
@@ -142,6 +150,7 @@ function convertBitmapTo256Colors {
         return [Image]::fromStream($stream)
     } finally { $stream.dispose() }
 }
+#>
 
 function getColorsAt {
 	param([uint32] $index)
