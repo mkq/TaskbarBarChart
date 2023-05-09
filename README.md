@@ -1,5 +1,5 @@
 # TaskbarBarChart
-Taskbar bar chart for CPU usage monitoring or other stuff.
+A bar chart for CPU usage monitoring or other stuff in the taskbar notification area ("system tray icons").
 
 ## Files in this repository
 - show-taskbarBarChart.ps1: The main script. Can be launched separately or through one of the start-\* scripts.

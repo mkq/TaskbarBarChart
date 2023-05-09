@@ -6,7 +6,9 @@ Shows taskbar notification icons with bar charts.
 
 Parameters tagged with "(valueIndexBased)" take an array of whatever type makes sense for the
 parameter. The n-th element of the parameter is for the n-th value. If there are more values than
-parameters, the last parameter is used.
+parameters, the last parameter is used. For example, if there are eight CPU usage values to show
+on a computer with eight logical CPUs, it makes sense to pass up to eight values as the $fgColors
+parameter to specify a different color for each.
 
 Parameters tagged with "(valueCountBased)" take an array of whatever type makes sense for the
 parameter. When n values are to be shown, the n-th (1-based) element of the parameter is used, if
@@ -101,7 +103,7 @@ param (
 	# See method System.Drawing.ColorConverter.convertFromString for valid colors.
 	[Parameter(Mandatory=$false)] [string[]]
 	$fgColors = @('#ff50ff32'),
-	
+
 	# (valueIndexBased) Background colors.
 	# See method System.Drawing.ColorConverter.convertFromString for valid colors.
 	[Parameter(Mandatory=$false)] [string[]]
@@ -265,7 +267,7 @@ try {
 			[DllImport("user32.dll")] public extern static int  GetGuiResources(IntPtr hProcess, int uiFlags);
 			[DllImport("user32.dll")] public extern static bool DestroyIcon(IntPtr handle);
 '@
- 	applyWindowVisible
+	applyWindowVisible
 #	[System.Windows.Forms.Application]::EnableVisualStyles();
 	$stopWatch = new-object System.Diagnostics.StopWatch; $stopWatch.start()
 	$mega = [math]::pow(2, 20)
