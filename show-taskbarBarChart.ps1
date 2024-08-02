@@ -28,10 +28,10 @@ param (
 		set-strictMode -off
 		if ([int] $script:cmdInvocationCount -eq 0) { write-host -noNewline 'The first invocation of Win32_PerfFormattedData_PerfOS_Processor may take a few seconds... ' }
 
-		get-WmiObject Win32_PerfFormattedData_PerfOS_Processor | where { $_.name -ne '_total' } `
-		| % { [PSCustomObject] @{ name = [int]$_.name; value = [uint32]$_.PercentProcessorTime } } `
-		| sort-object -property name `
-		| % { [PSCustomObject] @{ name = "CPU $($_.name)"; value = $_.value } }
+		get-WmiObject Win32_PerfFormattedData_PerfOS_Processor -Property name,PercentProcessorTime `
+		| where { $_.name -ne '_total' } `
+		| % { [PSCustomObject] @{ name = "CPU $('{0:d2}' -f [int]$_.name)"; value = $_.PercentProcessorTime } } `
+		| sort-object -property name
 
 		if ($script:cmdInvocationCount++ -eq 0) { write-host 'done' }
 	},
