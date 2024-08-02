@@ -1,4 +1,5 @@
-get-date
+'process {0} startet on {1}' -f ($pid, (get-date))
+''
 get-content $MyInvocation.MyCommand.Path
 $dir = (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $parentDir = (Split-Path -Parent $dir)
